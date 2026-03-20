@@ -1,0 +1,18 @@
+# environment variables
+.env
+backend/.env
+frontend/.env
+
+# python cache / environments
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# node / next.js
+node_modules/
+.next/
+out/
+
+# uploads folder
+backend/uploads/

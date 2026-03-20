@@ -8,11 +8,13 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [listening, setListening] = useState(false);
 
+  const API_BASE = "https://supt-ai-backend.onrender.com";
+
   const addStickyNote = async () => {
     if (!prompt.trim()) return;
 
     try {
-      const res = await fetch("http://localhost:8000/log", {
+      const res = await fetch(`${API_BASE}/log`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -23,6 +25,7 @@ export default function Home() {
       if (!res.ok) throw new Error("Failed to save sticky note.");
 
       setPrompt("");
+      alert("Sticky note saved.");
     } catch (error) {
       console.error(error);
       alert("Failed to save sticky note.");
@@ -33,7 +36,7 @@ export default function Home() {
     setLoading(true);
 
     try {
-      const res = await fetch("http://localhost:8000/generate-report", {
+      const res = await fetch(`${API_BASE}/generate-report`, {
         method: "POST",
       });
 
@@ -110,7 +113,7 @@ export default function Home() {
     formData.append("file", file);
 
     try {
-      const res = await fetch("http://localhost:8000/upload-photo", {
+      const res = await fetch(`${API_BASE}/upload-photo`, {
         method: "POST",
         body: formData,
       });
