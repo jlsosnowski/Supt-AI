@@ -1,136 +1,62 @@
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from datetime import datetime
-from dotenv import load_dotenv
 import os
 
-load_dotenv()
-
-
-from app.services.log_service import add_log, get_logs, clear_logs
-from app.services.tagger import categorize_log
 from app.services.routing_service import route_prompt
+
 
 app = FastAPI()
 
+
+# ✅ CORS FIX — allows Vercel frontend + local testing
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["*"],  # simplest + safest for testing right now
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+
+# ensure uploads folder exists
 os.makedirs("uploads", exist_ok=True)
 
 
-class LogInput(BaseModel):
-    text: str
-
-
 @app.get("/")
-async def root():
+def root():
     return {"status": "Sup't AI backend running"}
 
 
 @app.post("/log")
-async def log_entry(input: LogInput):
-    category = categorize_log(input.text)
+async def log_entry(payload: dict):
+    text = payload.get("text", "")
+    if not text:
+        return {"error": "No text provided"}
 
-    add_log({
-        "text": input.text,
-        "category": category,
-        "timestamp": datetime.utcnow().isoformat()
-    })
+    with open("log.txt", "a", encoding="utf-8") as f:
+        f.write(text + "\n")
 
-    return {"status": "logged"}
+    return {"status": "saved"}
 
 
 @app.post("/generate-report")
 async def generate_report():
-    logs = get_logs()
+    try:
+        with open("log.txt", "r", encoding="utf-8") as f:
+            notes = f.read()
+    except FileNotFoundError:
+        notes = ""
 
-    if not logs:
-        return {"text": "No logs recorded today."}
+    result = route_prompt(notes)
 
-    seen = set()
-    cleaned_logs = []
-
-    for log in logs:
-        key = log["text"].lower()
-        if key not in seen:
-            seen.add(key)
-            cleaned_logs.append(log)
-
-    formatted_logs = "\n".join([
-        f"- ({log['category']}) {log['text']}"
-        for log in cleaned_logs
-    ])
-
-    prompt = f"""
-You are a construction superintendent and safety assistant.
-
-Convert the following field notes into a PROFESSIONAL DAILY REPORT.
-
-ONLY include:
-- Safety issues
-- Work completed
-- Equipment installed
-- Constraints impacting work
-- Important notes
-
-Group similar items together and remove duplicates.
-
-FORMAT:
-
-Daily Construction Report
-
-1. Work Completed:
-- ...
-
-2. Equipment Installed:
-- ...
-
-3. Manpower:
-- ...
-
-4. Hazards:
-- ...
-
-5. Constraints / Delays:
-- ...
-
-6. Inspections & Testing:
-- ...
-
-7. Notes:
-- ...
-
-Rules:
-- Use bullet points
-- Be professional
-- Do NOT invent information
-- If missing, write "None reported"
-
-Field Notes:
-{formatted_logs}
-"""
-
-    result = await route_prompt(prompt, "auto", "normal")
-
-    clear_logs()
-
-    return {
-        "text": result if isinstance(result, str) else result.get("text", "")
-    }
+    return {"text": result}
 
 
 @app.post("/upload-photo")
 async def upload_photo(file: UploadFile = File(...)):
-    contents = await file.read()
+    file_location = f"uploads/{file.filename}"
 
-    with open(f"uploads/{file.filename}", "wb") as f:
-        f.write(contents)
+    with open(file_location, "wb") as f:
+        f.write(await file.read())
 
-    return {"status": "saved", "filename": file.filename}
+    return {"status": "uploaded"}
