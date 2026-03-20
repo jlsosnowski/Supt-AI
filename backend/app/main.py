@@ -61,7 +61,12 @@ async def generate_report():
         if result is None:
             raise HTTPException(status_code=500, detail="route_prompt returned None")
 
-        return {"text": result["text"]}
+        report_text = result["text"]
+
+        # clear shared log after report generation
+        open("log.txt", "w", encoding="utf-8").close()
+
+        return {"text": report_text}
 
     except Exception as e:
         print("GENERATE_REPORT_ERROR:", repr(e))
