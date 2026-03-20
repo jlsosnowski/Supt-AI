@@ -1,14 +1,13 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import os
+import traceback
 
 from app.services.routing_service import route_prompt
 
 
 app = FastAPI()
 
-
-# ✅ CORS FIX — allows Vercel frontend + local testing
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -21,8 +20,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-# ensure uploads folder exists
 os.makedirs("uploads", exist_ok=True)
 
 
@@ -46,14 +43,26 @@ async def log_entry(payload: dict):
 @app.post("/generate-report")
 async def generate_report():
     try:
-        with open("log.txt", "r", encoding="utf-8") as f:
-            notes = f.read()
-    except FileNotFoundError:
-        notes = ""
+        try:
+            with open("log.txt", "r", encoding="utf-8") as f:
+                notes = f.read()
+        except FileNotFoundError:
+            notes = ""
 
-    result = route_prompt(notes)
+        if not notes.strip():
+            return {"text": "No notes found yet."}
 
-    return {"text": result}
+        result = route_prompt(notes)
+
+        if result is None:
+            raise HTTPException(status_code=500, detail="route_prompt returned None")
+
+        return {"text": str(result)}
+
+    except Exception as e:
+        print("GENERATE_REPORT_ERROR:", repr(e))
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/upload-photo")
