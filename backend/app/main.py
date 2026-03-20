@@ -11,7 +11,11 @@ app = FastAPI()
 # ✅ CORS FIX — allows Vercel frontend + local testing
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # simplest + safest for testing right now
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "https://supt-ai.vercel.app",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
