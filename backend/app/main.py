@@ -52,7 +52,11 @@ async def generate_report():
         if not notes.strip():
             return {"text": "No notes found yet."}
 
-        result = route_prompt(notes)
+        result = route_prompt(
+            notes,
+            model="gpt",
+            personality="professional",
+        )
 
         if result is None:
             raise HTTPException(status_code=500, detail="route_prompt returned None")
