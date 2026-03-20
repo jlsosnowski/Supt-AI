@@ -54,7 +54,7 @@ async def generate_report():
 
         result = await route_prompt(
             notes,
-            model="gpt",
+            model="openai",
             personality="professional",
         )
 
