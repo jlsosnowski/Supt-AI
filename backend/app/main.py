@@ -61,7 +61,7 @@ async def generate_report():
         if result is None:
             raise HTTPException(status_code=500, detail="route_prompt returned None")
 
-        return {"text": str(result)}
+        return {"text": result["text"]}
 
     except Exception as e:
         print("GENERATE_REPORT_ERROR:", repr(e))
