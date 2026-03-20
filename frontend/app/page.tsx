@@ -24,8 +24,8 @@ export default function Home() {
 
       if (!res.ok) throw new Error("Failed to save sticky note.");
 
-      setPrompt("");
       alert("Sticky note saved.");
+      setPrompt("");
     } catch (error) {
       console.error(error);
       alert("Failed to save sticky note.");
@@ -40,10 +40,15 @@ export default function Home() {
         method: "POST",
       });
 
-      if (!res.ok) throw new Error("Failed to generate report.");
+      if (!res.ok) {
+        const text = await res.text();
+        console.error(text);
+        throw new Error("Backend report error");
+      }
 
       const data = await res.json();
-      setResponse(data.text || "No report returned.");
+
+      setResponse(data.text ?? "Report generated but empty.");
     } catch (error) {
       console.error(error);
       setResponse("Failed to generate report.");
@@ -58,7 +63,9 @@ export default function Home() {
       (window as any).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      alert("Voice input is not supported in this browser. Use typed notes for now.");
+      alert(
+        "Voice input unsupported in this browser. Use Chrome (Android) or Safari (iPhone)."
+      );
       return;
     }
 
@@ -67,45 +74,28 @@ export default function Home() {
     recognition.lang = "en-US";
     recognition.continuous = false;
     recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
 
-    recognition.onstart = () => {
-      setListening(true);
-    };
+    recognition.onstart = () => setListening(true);
 
     recognition.onresult = (event: any) => {
-      const transcript = event.results?.[0]?.[0]?.transcript || "";
-      if (transcript) {
-        setPrompt(transcript);
-      }
+      const transcript = event.results?.[0]?.[0]?.transcript ?? "";
+      setPrompt(transcript);
     };
 
     recognition.onerror = (event: any) => {
-      console.error("Speech recognition error:", event.error);
-      setListening(false);
-
-      if (event.error === "network") {
-        alert("Voice input is unavailable on this browser/session right now. Use typed notes for this test.");
-        return;
-      }
-
-      alert(`Microphone error: ${event.error}`);
-    };
-
-    recognition.onend = () => {
+      console.error(event.error);
+      alert("Microphone error: " + event.error);
       setListening(false);
     };
 
-    try {
-      recognition.start();
-    } catch (err) {
-      console.error("recognition.start failed", err);
-      setListening(false);
-      alert("Voice input could not start. Use typed notes for now.");
-    }
+    recognition.onend = () => setListening(false);
+
+    recognition.start();
   };
 
-  const uploadPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const uploadPhoto = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -118,20 +108,25 @@ export default function Home() {
         body: formData,
       });
 
-      if (!res.ok) throw new Error("Upload failed.");
+      if (!res.ok) throw new Error("Upload failed");
 
-      alert("Photo uploaded successfully.");
+      alert("Photo uploaded successfully");
     } catch (error) {
       console.error(error);
-      alert("Photo upload failed.");
+      alert("Photo upload failed");
     }
   };
 
   return (
     <main className="min-h-screen bg-gray-100 p-6">
       <div className="max-w-3xl mx-auto p-6 bg-white rounded-2xl shadow-xl space-y-4 border mt-8">
-        <h1 className="text-4xl font-bold text-blue-700">Sup’t AI</h1>
-        <p className="text-gray-500">Field Intelligence & Daily Reporting System</p>
+        <h1 className="text-4xl font-bold text-blue-700">
+          Sup’t AI
+        </h1>
+
+        <p className="text-gray-500">
+          Field Intelligence & Daily Reporting System
+        </p>
 
         <button
           onClick={startVoice}
@@ -160,7 +155,7 @@ export default function Home() {
             onClick={dailyWrapUp}
             className="bg-green-600 text-white px-4 py-2 rounded-lg"
           >
-            ✅ Daily Wrap-Up
+            ✅ Daily Wrap‑Up
           </button>
         </div>
 
@@ -171,14 +166,16 @@ export default function Home() {
           className="mt-2"
         />
 
-        {loading ? (
-          <p className="text-black">Generating report...</p>
-        ) : (
-          response && (
-            <div className="mt-4 p-4 bg-gray-100 rounded-lg whitespace-pre-line text-black">
-              {response}
-            </div>
-          )
+        {loading && (
+          <p className="text-black">
+            Generating report...
+          </p>
+        )}
+
+        {!loading && response && (
+          <div className="mt-4 p-4 bg-gray-100 rounded-lg whitespace-pre-line text-black">
+            {response}
+          </div>
         )}
       </div>
     </main>
