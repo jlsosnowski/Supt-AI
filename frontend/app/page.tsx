@@ -7,6 +7,7 @@ export default function Home() {
   const [response, setResponse] = useState("");
   const [loading, setLoading] = useState(false);
   const [listening, setListening] = useState(false);
+  const [user, setUser] = useState("j.williams");
 
   const API_BASE = "https://supt-ai-backend.onrender.com";
 
@@ -19,7 +20,10 @@ export default function Home() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ text: prompt }),
+        body: JSON.stringify({
+          text: prompt,
+          user: user,
+        }),
       });
 
       if (!res.ok) throw new Error("Failed to save sticky note.");
@@ -38,17 +42,22 @@ export default function Home() {
     try {
       const res = await fetch(`${API_BASE}/generate-report`, {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          user: user,
+        }),
       });
 
       if (!res.ok) {
         const text = await res.text();
         console.error(text);
-        throw new Error("Backend report error");
+        throw new Error("Failed to generate report.");
       }
 
       const data = await res.json();
-
-      setResponse(data.text ?? "Report generated but empty.");
+      setResponse(data.text ?? "No report returned.");
     } catch (error) {
       console.error(error);
       setResponse("Failed to generate report.");
@@ -93,9 +102,7 @@ export default function Home() {
     recognition.start();
   };
 
-  const uploadPhoto = async (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  const uploadPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -120,13 +127,25 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-gray-100 p-6">
       <div className="max-w-3xl mx-auto p-6 bg-white rounded-2xl shadow-xl space-y-4 border mt-8">
-        <h1 className="text-4xl font-bold text-blue-700">
-          Sup’t AI
-        </h1>
+        <h1 className="text-4xl font-bold text-blue-700">Sup’t AI</h1>
 
         <p className="text-gray-500">
           Field Intelligence & Daily Reporting System
         </p>
+
+        <div>
+          <label className="block text-sm font-medium text-black mb-2">
+            Select User
+          </label>
+          <select
+            value={user}
+            onChange={(e) => setUser(e.target.value)}
+            className="w-full border p-3 rounded text-black"
+          >
+            <option value="j.williams">J. Williams</option>
+            <option value="r.smith">R. Smith</option>
+          </select>
+        </div>
 
         <button
           onClick={startVoice}
@@ -155,7 +174,7 @@ export default function Home() {
             onClick={dailyWrapUp}
             className="bg-green-600 text-white px-4 py-2 rounded-lg"
           >
-            ✅ Daily Wrap‑Up
+            ✅ Daily Wrap-Up
           </button>
         </div>
 
@@ -166,11 +185,7 @@ export default function Home() {
           className="mt-2"
         />
 
-        {loading && (
-          <p className="text-black">
-            Generating report...
-          </p>
-        )}
+        {loading && <p className="text-black">Generating report...</p>}
 
         {!loading && response && (
           <div className="mt-4 p-4 bg-gray-100 rounded-lg whitespace-pre-line text-black">
