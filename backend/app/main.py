@@ -52,7 +52,7 @@ async def generate_report():
         if not notes.strip():
             return {"text": "No notes found yet."}
 
-        result = route_prompt(
+        result = await route_prompt(
             notes,
             model="gpt",
             personality="professional",
