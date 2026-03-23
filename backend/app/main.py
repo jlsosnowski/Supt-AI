@@ -23,6 +23,14 @@ app.add_middleware(
 os.makedirs("uploads", exist_ok=True)
 
 
+def get_log_filename(user: str):
+    if user == "r.smith":
+        return "log_r_smith.txt"
+    if user == "j.williams":
+        return "log_j_williams.txt"
+    raise HTTPException(status_code=400, detail="Invalid user")
+
+
 @app.get("/")
 def root():
     return {"status": "Sup't AI backend running"}
@@ -30,21 +38,28 @@ def root():
 
 @app.post("/log")
 async def log_entry(payload: dict):
-    text = payload.get("text", "")
-    if not text:
-        return {"error": "No text provided"}
+    text = payload.get("text", "").strip()
+    user = payload.get("user", "").strip()
 
-    with open("log.txt", "a", encoding="utf-8") as f:
+    if not text:
+        raise HTTPException(status_code=400, detail="No text provided")
+
+    filename = get_log_filename(user)
+
+    with open(filename, "a", encoding="utf-8") as f:
         f.write(text + "\n")
 
     return {"status": "saved"}
 
 
 @app.post("/generate-report")
-async def generate_report():
+async def generate_report(payload: dict):
+    user = payload.get("user", "").strip()
+    filename = get_log_filename(user)
+
     try:
         try:
-            with open("log.txt", "r", encoding="utf-8") as f:
+            with open(filename, "r", encoding="utf-8") as f:
                 notes = f.read()
         except FileNotFoundError:
             notes = ""
@@ -63,8 +78,9 @@ async def generate_report():
 
         report_text = result["text"]
 
-        # clear shared log after report generation
-        open("log.txt", "w", encoding="utf-8").close()
+        # clear only this user's log after generating their report
+        with open(filename, "w", encoding="utf-8") as f:
+            f.write("")
 
         return {"text": report_text}
 
