@@ -115,7 +115,6 @@ async def generate_report(payload: dict):
         )
         append_line(reports_file, report_block)
 
-        # clear only the active daily buffer
         with open(active_file, "w", encoding="utf-8") as f:
             f.write("")
 
@@ -123,6 +122,39 @@ async def generate_report(payload: dict):
 
     except Exception as e:
         print("GENERATE_REPORT_ERROR:", repr(e))
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/history")
+async def get_history(payload: dict):
+    user = payload.get("user", "").strip()
+    archive_file = get_archive_filename(user)
+    reports_file = get_reports_filename(user)
+
+    try:
+        archive_text = ""
+        reports_text = ""
+
+        if os.path.exists(archive_file):
+            with open(archive_file, "r", encoding="utf-8") as f:
+                archive_text = f.read()
+
+        if os.path.exists(reports_file):
+            with open(reports_file, "r", encoding="utf-8") as f:
+                reports_text = f.read()
+
+        return {
+            "archive": archive_text,
+            "reports": reports_text,
+            "archive_exists": os.path.exists(archive_file),
+            "reports_exists": os.path.exists(reports_file),
+            "archive_file": archive_file,
+            "reports_file": reports_file,
+        }
+
+    except Exception as e:
+        print("HISTORY_ERROR:", repr(e))
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -135,34 +167,3 @@ async def upload_photo(file: UploadFile = File(...)):
         f.write(await file.read())
 
     return {"status": "uploaded"}
-
-
-@app.post("/history")
-async def get_history(payload: dict):
-    user = payload.get("user", "").strip()
-    archive_file = get_archive_filename(user)
-    reports_file = get_reports_filename(user)
-
-    try:
-        if os.path.exists(archive_file):
-            with open(archive_file, "r", encoding="utf-8") as f:
-                archive_text = f.read()
-        else:
-            archive_text = ""
-
-        if os.path.exists(reports_file):
-            with open(reports_file, "r", encoding="utf-8") as f:
-                reports_text = f.read()
-        else:
-            reports_text = ""
-
-        return {
-            "archive": archive_text,
-            "reports": reports_text,
-        }
-
-    except Exception as e:
-        print("HISTORY_ERROR:", repr(e))
-        print(traceback.format_exc())
-        raise HTTPException(status_code=500, detail=str(e))
-    
