@@ -2,6 +2,7 @@ from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import os
 import traceback
+from datetime import datetime
 
 from app.services.routing_service import route_prompt
 
@@ -21,14 +22,36 @@ app.add_middleware(
 )
 
 os.makedirs("uploads", exist_ok=True)
+os.makedirs("data", exist_ok=True)
 
 
-def get_log_filename(user: str):
-    if user == "r.smith":
-        return "log_r_smith.txt"
+def get_user_key(user: str) -> str:
+    user = (user or "").strip().lower()
     if user == "j.williams":
-        return "log_j_williams.txt"
+        return "j_williams"
+    if user == "r.smith":
+        return "r_smith"
     raise HTTPException(status_code=400, detail="Invalid user")
+
+
+def get_active_log_filename(user: str) -> str:
+    user_key = get_user_key(user)
+    return os.path.join("data", f"active_{user_key}.txt")
+
+
+def get_archive_filename(user: str) -> str:
+    user_key = get_user_key(user)
+    return os.path.join("data", f"archive_{user_key}.txt")
+
+
+def get_reports_filename(user: str) -> str:
+    user_key = get_user_key(user)
+    return os.path.join("data", f"reports_{user_key}.txt")
+
+
+def append_line(filename: str, text: str) -> None:
+    with open(filename, "a", encoding="utf-8") as f:
+        f.write(text)
 
 
 @app.get("/")
@@ -44,10 +67,14 @@ async def log_entry(payload: dict):
     if not text:
         raise HTTPException(status_code=400, detail="No text provided")
 
-    filename = get_log_filename(user)
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    line = f"[{timestamp}] {text}\n"
 
-    with open(filename, "a", encoding="utf-8") as f:
-        f.write(text + "\n")
+    active_file = get_active_log_filename(user)
+    archive_file = get_archive_filename(user)
+
+    append_line(active_file, line)
+    append_line(archive_file, line)
 
     return {"status": "saved"}
 
@@ -55,11 +82,13 @@ async def log_entry(payload: dict):
 @app.post("/generate-report")
 async def generate_report(payload: dict):
     user = payload.get("user", "").strip()
-    filename = get_log_filename(user)
+
+    active_file = get_active_log_filename(user)
+    reports_file = get_reports_filename(user)
 
     try:
         try:
-            with open(filename, "r", encoding="utf-8") as f:
+            with open(active_file, "r", encoding="utf-8") as f:
                 notes = f.read()
         except FileNotFoundError:
             notes = ""
@@ -77,9 +106,17 @@ async def generate_report(payload: dict):
             raise HTTPException(status_code=500, detail="route_prompt returned None")
 
         report_text = result["text"]
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        # clear only this user's log after generating their report
-        with open(filename, "w", encoding="utf-8") as f:
+        report_block = (
+            f"\n===== REPORT {timestamp} =====\n"
+            f"{report_text}\n"
+            f"===== END REPORT =====\n"
+        )
+        append_line(reports_file, report_block)
+
+        # clear only the active daily buffer
+        with open(active_file, "w", encoding="utf-8") as f:
             f.write("")
 
         return {"text": report_text}
@@ -98,3 +135,34 @@ async def upload_photo(file: UploadFile = File(...)):
         f.write(await file.read())
 
     return {"status": "uploaded"}
+
+
+@app.post("/history")
+async def get_history(payload: dict):
+    user = payload.get("user", "").strip()
+    archive_file = get_archive_filename(user)
+    reports_file = get_reports_filename(user)
+
+    try:
+        if os.path.exists(archive_file):
+            with open(archive_file, "r", encoding="utf-8") as f:
+                archive_text = f.read()
+        else:
+            archive_text = ""
+
+        if os.path.exists(reports_file):
+            with open(reports_file, "r", encoding="utf-8") as f:
+                reports_text = f.read()
+        else:
+            reports_text = ""
+
+        return {
+            "archive": archive_text,
+            "reports": reports_text,
+        }
+
+    except Exception as e:
+        print("HISTORY_ERROR:", repr(e))
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+    
