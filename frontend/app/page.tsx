@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const API_BASE = "https://supt-ai-backend.onrender.com";
 
@@ -20,6 +20,14 @@ export default function Home() {
   const [equipmentTag, setEquipmentTag] = useState("");
   const [equipmentLocation, setEquipmentLocation] = useState("");
   const [equipmentReport, setEquipmentReport] = useState("");
+
+  useEffect(() => {
+    const savedUser = localStorage.getItem("supt_ai_user");
+    if (savedUser) {
+      setUser(savedUser);
+      setIsLoggedIn(true);
+    }
+  }, []);
 
   const handleAuth = async () => {
     if (!username.trim() || !password.trim()) {
@@ -55,6 +63,8 @@ export default function Home() {
 
       setUser(data.user);
       setIsLoggedIn(true);
+      localStorage.setItem("supt_ai_user", data.user);
+      setPassword("");
     } catch (error: any) {
       alert(error.message || "Authentication failed.");
     }
@@ -231,6 +241,7 @@ export default function Home() {
   };
 
   const logout = () => {
+    localStorage.removeItem("supt_ai_user");
     setIsLoggedIn(false);
     setUser("");
     setUsername("");
