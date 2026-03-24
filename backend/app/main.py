@@ -167,3 +167,48 @@ async def upload_photo(file: UploadFile = File(...)):
         f.write(await file.read())
 
     return {"status": "uploaded"}
+@app.post("/equipment-log")
+async def equipment_log(payload: dict):
+    user = payload.get("user", "").strip()
+    equipment = payload.get("equipment", "").strip()
+    tag = payload.get("tag", "").strip()
+    location = payload.get("location", "").strip()
+    status = payload.get("status", "installed").strip()
+
+    if not equipment or not location:
+        raise HTTPException(status_code=400, detail="Missing required fields")
+
+    user_key = get_user_key(user)
+    filename = os.path.join("data", f"equipment_{user_key}.txt")
+
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    line = f"[{timestamp}] {equipment} | {tag} | {location} | {status}\n"
+
+    with open(filename, "a", encoding="utf-8") as f:
+        f.write(line)
+
+    return {"status": "saved"}
+@app.post("/equipment-report")
+async def equipment_report(payload: dict):
+    user = payload.get("user", "").strip()
+    user_key = get_user_key(user)
+    filename = os.path.join("data", f"equipment_{user_key}.txt")
+
+    try:
+        if not os.path.exists(filename):
+            return {"text": "No equipment logged yet."}
+
+        with open(filename, "r", encoding="utf-8") as f:
+            data = f.read()
+
+        result = await route_prompt(
+            f"Create a clean installed equipment report with locations:\n{data}",
+            model="openai",
+            personality="professional",
+        )
+
+        return {"text": result["text"]}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
