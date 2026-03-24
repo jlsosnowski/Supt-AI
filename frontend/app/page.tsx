@@ -2,19 +2,63 @@
 
 import { useState } from "react";
 
+const API_BASE = "https://supt-ai-backend.onrender.com";
+
 export default function Home() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [user, setUser] = useState("");
+
   const [prompt, setPrompt] = useState("");
   const [response, setResponse] = useState("");
   const [loading, setLoading] = useState(false);
   const [listening, setListening] = useState(false);
-  const [user, setUser] = useState("j.williams");
 
   const [equipment, setEquipment] = useState("");
   const [equipmentTag, setEquipmentTag] = useState("");
   const [equipmentLocation, setEquipmentLocation] = useState("");
   const [equipmentReport, setEquipmentReport] = useState("");
 
-  const API_BASE = "https://supt-ai-backend.onrender.com";
+  const handleAuth = async () => {
+    if (!username.trim() || !password.trim()) {
+      alert("Username and password are required.");
+      return;
+    }
+
+    try {
+      const endpoint = authMode === "login" ? "/login" : "/register";
+
+      const res = await fetch(`${API_BASE}${endpoint}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username,
+          password,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.detail || "Authentication failed");
+      }
+
+      if (authMode === "register") {
+        alert("User created. Please log in.");
+        setAuthMode("login");
+        return;
+      }
+
+      setUser(data.user);
+      setIsLoggedIn(true);
+    } catch (error: any) {
+      alert(error.message || "Authentication failed.");
+    }
+  };
 
   const addStickyNote = async () => {
     if (!prompt.trim()) {
@@ -30,7 +74,7 @@ export default function Home() {
         },
         body: JSON.stringify({
           text: prompt,
-          user: user,
+          user,
         }),
       });
 
@@ -54,7 +98,7 @@ export default function Home() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          user: user,
+          user,
         }),
       });
 
@@ -87,8 +131,8 @@ export default function Home() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          user: user,
-          equipment: equipment,
+          user,
+          equipment,
           tag: equipmentTag,
           location: equipmentLocation,
         }),
@@ -114,7 +158,7 @@ export default function Home() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          user: user,
+          user,
         }),
       });
 
@@ -135,7 +179,7 @@ export default function Home() {
 
     if (!SpeechRecognition) {
       alert(
-        "Voice input unsupported in this browser. Use Chrome (Android) or Safari (iPhone)."
+        "Voice input unsupported in this browser. Use Chrome on Android or Safari on iPhone."
       );
       return;
     }
@@ -186,27 +230,94 @@ export default function Home() {
     }
   };
 
+  const logout = () => {
+    setIsLoggedIn(false);
+    setUser("");
+    setUsername("");
+    setPassword("");
+    setPrompt("");
+    setResponse("");
+    setEquipment("");
+    setEquipmentTag("");
+    setEquipmentLocation("");
+    setEquipmentReport("");
+  };
+
+  if (!isLoggedIn) {
+    return (
+      <main className="min-h-screen bg-gray-100 p-6 flex items-center justify-center">
+        <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-6 space-y-5 border">
+          <h1 className="text-4xl font-bold text-blue-700">Sup’t AI</h1>
+          <p className="text-gray-500">Sign in to continue</p>
+
+          <div className="flex gap-2">
+            <button
+              onClick={() => setAuthMode("login")}
+              className={`flex-1 px-4 py-2 rounded-lg ${
+                authMode === "login"
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-200 text-black"
+              }`}
+            >
+              Login
+            </button>
+            <button
+              onClick={() => setAuthMode("register")}
+              className={`flex-1 px-4 py-2 rounded-lg ${
+                authMode === "register"
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-200 text-black"
+              }`}
+            >
+              Register
+            </button>
+          </div>
+
+          <input
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            className="w-full border p-3 rounded text-black"
+            placeholder="Username"
+          />
+
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full border p-3 rounded text-black"
+            placeholder="Password"
+          />
+
+          <button
+            onClick={handleAuth}
+            className="w-full bg-blue-600 text-white px-4 py-3 rounded-lg"
+          >
+            {authMode === "login" ? "Sign In" : "Create Account"}
+          </button>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-gray-100 p-6">
       <div className="max-w-3xl mx-auto p-6 bg-white rounded-2xl shadow-xl space-y-6 border mt-8">
-        <h1 className="text-4xl font-bold text-blue-700">Sup’t AI</h1>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-4xl font-bold text-blue-700">Sup’t AI</h1>
+            <p className="text-gray-500">
+              Field Intelligence & Daily Reporting System
+            </p>
+            <p className="text-sm text-gray-600 mt-1">Signed in as: {user}</p>
+          </div>
 
-        <p className="text-gray-500">
-          Field Intelligence & Daily Reporting System
-        </p>
-
-        <div>
-          <label className="block text-sm font-medium text-black mb-2">
-            Select User
-          </label>
-          <select
-            value={user}
-            onChange={(e) => setUser(e.target.value)}
-            className="w-full border p-3 rounded text-black"
+          <button
+            onClick={logout}
+            className="bg-gray-800 text-white px-4 py-2 rounded-lg"
           >
-            <option value="j.williams">J. Williams</option>
-            <option value="r.smith">R. Smith</option>
-          </select>
+            Logout
+          </button>
         </div>
 
         <div className="p-4 border rounded-xl bg-gray-50 space-y-4">
