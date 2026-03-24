@@ -1,6 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import os
+import json
 import traceback
 from datetime import datetime
 
@@ -24,13 +25,30 @@ app.add_middleware(
 os.makedirs("uploads", exist_ok=True)
 os.makedirs("data", exist_ok=True)
 
+USERS_FILE = os.path.join("data", "users.json")
+
+
+def load_users():
+    if not os.path.exists(USERS_FILE):
+        return {}
+
+    with open(USERS_FILE, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def save_users(users):
+    with open(USERS_FILE, "w", encoding="utf-8") as f:
+        json.dump(users, f, indent=2)
+
 
 def get_user_key(user: str) -> str:
     user = (user or "").strip().lower()
+
     if user == "j.williams":
         return "j_williams"
     if user == "r.smith":
         return "r_smith"
+
     raise HTTPException(status_code=400, detail="Invalid user")
 
 
@@ -49,6 +67,11 @@ def get_reports_filename(user: str) -> str:
     return os.path.join("data", f"reports_{user_key}.txt")
 
 
+def get_equipment_filename(user: str) -> str:
+    user_key = get_user_key(user)
+    return os.path.join("data", f"equipment_{user_key}.txt")
+
+
 def append_line(filename: str, text: str) -> None:
     with open(filename, "a", encoding="utf-8") as f:
         f.write(text)
@@ -57,6 +80,47 @@ def append_line(filename: str, text: str) -> None:
 @app.get("/")
 def root():
     return {"status": "Sup't AI backend running"}
+
+
+@app.post("/register")
+async def register(payload: dict):
+    username = payload.get("username", "").strip().lower()
+    password = payload.get("password", "").strip()
+
+    if not username or not password:
+        raise HTTPException(status_code=400, detail="Missing username or password")
+
+    users = load_users()
+
+    if username in users:
+        raise HTTPException(status_code=400, detail="User already exists")
+
+    users[username] = {
+        "password": password
+    }
+
+    save_users(users)
+
+    return {"status": "user created"}
+
+
+@app.post("/login")
+async def login(payload: dict):
+    username = payload.get("username", "").strip().lower()
+    password = payload.get("password", "").strip()
+
+    if not username or not password:
+        raise HTTPException(status_code=400, detail="Missing username or password")
+
+    users = load_users()
+
+    if username not in users:
+        raise HTTPException(status_code=401, detail="Invalid username")
+
+    if users[username]["password"] != password:
+        raise HTTPException(status_code=401, detail="Invalid password")
+
+    return {"status": "login success", "user": username}
 
 
 @app.post("/log")
@@ -159,14 +223,6 @@ async def get_history(payload: dict):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/upload-photo")
-async def upload_photo(file: UploadFile = File(...)):
-    file_location = f"uploads/{file.filename}"
-
-    with open(file_location, "wb") as f:
-        f.write(await file.read())
-
-    return {"status": "uploaded"}
 @app.post("/equipment-log")
 async def equipment_log(payload: dict):
     user = payload.get("user", "").strip()
@@ -178,21 +234,19 @@ async def equipment_log(payload: dict):
     if not equipment or not location:
         raise HTTPException(status_code=400, detail="Missing required fields")
 
-    user_key = get_user_key(user)
-    filename = os.path.join("data", f"equipment_{user_key}.txt")
-
+    filename = get_equipment_filename(user)
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     line = f"[{timestamp}] {equipment} | {tag} | {location} | {status}\n"
 
-    with open(filename, "a", encoding="utf-8") as f:
-        f.write(line)
+    append_line(filename, line)
 
     return {"status": "saved"}
+
+
 @app.post("/equipment-report")
 async def equipment_report(payload: dict):
     user = payload.get("user", "").strip()
-    user_key = get_user_key(user)
-    filename = os.path.join("data", f"equipment_{user_key}.txt")
+    filename = get_equipment_filename(user)
 
     try:
         if not os.path.exists(filename):
@@ -201,14 +255,31 @@ async def equipment_report(payload: dict):
         with open(filename, "r", encoding="utf-8") as f:
             data = f.read()
 
+        if not data.strip():
+            return {"text": "No equipment logged yet."}
+
         result = await route_prompt(
             f"Create a clean installed equipment report with locations:\n{data}",
             model="openai",
             personality="professional",
         )
 
+        if result is None:
+            raise HTTPException(status_code=500, detail="route_prompt returned None")
+
         return {"text": result["text"]}
 
     except Exception as e:
+        print("EQUIPMENT_REPORT_ERROR:", repr(e))
+        print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
-    
+
+
+@app.post("/upload-photo")
+async def upload_photo(file: UploadFile = File(...)):
+    file_location = f"uploads/{file.filename}"
+
+    with open(file_location, "wb") as f:
+        f.write(await file.read())
+
+    return {"status": "uploaded"}
