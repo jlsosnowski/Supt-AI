@@ -23,9 +23,20 @@ export default function Home() {
 
   useEffect(() => {
     const savedUser = localStorage.getItem("supt_ai_user");
+    const savedReport = localStorage.getItem("supt_ai_report");
+    const savedEquipmentReport = localStorage.getItem("supt_ai_equipment_report");
+
     if (savedUser) {
       setUser(savedUser);
       setIsLoggedIn(true);
+    }
+
+    if (savedReport) {
+      setResponse(savedReport);
+    }
+
+    if (savedEquipmentReport) {
+      setEquipmentReport(savedEquipmentReport);
     }
   }, []);
 
@@ -119,7 +130,9 @@ export default function Home() {
       }
 
       const data = await res.json();
-      setResponse(data.text ?? "No report returned.");
+      const reportText = data.text ?? "No report returned.";
+      setResponse(reportText);
+      localStorage.setItem("supt_ai_report", reportText);
     } catch (error) {
       console.error(error);
       setResponse("Failed to generate report.");
@@ -175,7 +188,9 @@ export default function Home() {
       if (!res.ok) throw new Error("Failed to generate equipment report.");
 
       const data = await res.json();
-      setEquipmentReport(data.text ?? "No equipment report returned.");
+      const equipmentText = data.text ?? "No equipment report returned.";
+      setEquipmentReport(equipmentText);
+      localStorage.setItem("supt_ai_equipment_report", equipmentText);
     } catch (error) {
       console.error(error);
       setEquipmentReport("Failed to generate equipment report.");
@@ -242,6 +257,9 @@ export default function Home() {
 
   const logout = () => {
     localStorage.removeItem("supt_ai_user");
+    localStorage.removeItem("supt_ai_report");
+    localStorage.removeItem("supt_ai_equipment_report");
+
     setIsLoggedIn(false);
     setUser("");
     setUsername("");
