@@ -44,12 +44,15 @@ def save_users(users):
 def get_user_key(user: str) -> str:
     user = (user or "").strip().lower()
 
-    if user == "j.williams":
-        return "j_williams"
-    if user == "r.smith":
-        return "r_smith"
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid user")
 
-    raise HTTPException(status_code=400, detail="Invalid user")
+    safe_user = (
+        user.replace(" ", "_")
+        .replace(".", "_")
+        .replace("@", "_at_")
+    )
+    return safe_user
 
 
 def get_active_log_filename(user: str) -> str:
@@ -131,6 +134,9 @@ async def log_entry(payload: dict):
     if not text:
         raise HTTPException(status_code=400, detail="No text provided")
 
+    if not user:
+        raise HTTPException(status_code=400, detail="No user provided")
+
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     line = f"[{timestamp}] {text}\n"
 
@@ -146,6 +152,9 @@ async def log_entry(payload: dict):
 @app.post("/generate-report")
 async def generate_report(payload: dict):
     user = payload.get("user", "").strip()
+
+    if not user:
+        raise HTTPException(status_code=400, detail="No user provided")
 
     active_file = get_active_log_filename(user)
     reports_file = get_reports_filename(user)
@@ -193,6 +202,10 @@ async def generate_report(payload: dict):
 @app.post("/history")
 async def get_history(payload: dict):
     user = payload.get("user", "").strip()
+
+    if not user:
+        raise HTTPException(status_code=400, detail="No user provided")
+
     archive_file = get_archive_filename(user)
     reports_file = get_reports_filename(user)
 
@@ -231,6 +244,9 @@ async def equipment_log(payload: dict):
     location = payload.get("location", "").strip()
     status = payload.get("status", "installed").strip()
 
+    if not user:
+        raise HTTPException(status_code=400, detail="No user provided")
+
     if not equipment or not location:
         raise HTTPException(status_code=400, detail="Missing required fields")
 
@@ -246,6 +262,10 @@ async def equipment_log(payload: dict):
 @app.post("/equipment-report")
 async def equipment_report(payload: dict):
     user = payload.get("user", "").strip()
+
+    if not user:
+        raise HTTPException(status_code=400, detail="No user provided")
+
     filename = get_equipment_filename(user)
 
     try:
