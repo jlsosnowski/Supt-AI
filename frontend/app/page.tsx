@@ -9,10 +9,18 @@ export default function Home() {
   const [listening, setListening] = useState(false);
   const [user, setUser] = useState("j.williams");
 
+  const [equipment, setEquipment] = useState("");
+  const [equipmentTag, setEquipmentTag] = useState("");
+  const [equipmentLocation, setEquipmentLocation] = useState("");
+  const [equipmentReport, setEquipmentReport] = useState("");
+
   const API_BASE = "https://supt-ai-backend.onrender.com";
 
   const addStickyNote = async () => {
-    if (!prompt.trim()) return;
+    if (!prompt.trim()) {
+      alert("Please enter a field note first.");
+      return;
+    }
 
     try {
       const res = await fetch(`${API_BASE}/log`, {
@@ -63,6 +71,60 @@ export default function Home() {
       setResponse("Failed to generate report.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const saveEquipment = async () => {
+    if (!equipment.trim() || !equipmentLocation.trim()) {
+      alert("Equipment and location are required.");
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/equipment-log`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          user: user,
+          equipment: equipment,
+          tag: equipmentTag,
+          location: equipmentLocation,
+        }),
+      });
+
+      if (!res.ok) throw new Error("Failed to save equipment.");
+
+      alert("Equipment saved.");
+      setEquipment("");
+      setEquipmentTag("");
+      setEquipmentLocation("");
+    } catch (error) {
+      console.error(error);
+      alert("Failed to save equipment.");
+    }
+  };
+
+  const generateEquipmentReport = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/equipment-report`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          user: user,
+        }),
+      });
+
+      if (!res.ok) throw new Error("Failed to generate equipment report.");
+
+      const data = await res.json();
+      setEquipmentReport(data.text ?? "No equipment report returned.");
+    } catch (error) {
+      console.error(error);
+      setEquipmentReport("Failed to generate equipment report.");
     }
   };
 
@@ -126,7 +188,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-gray-100 p-6">
-      <div className="max-w-3xl mx-auto p-6 bg-white rounded-2xl shadow-xl space-y-4 border mt-8">
+      <div className="max-w-3xl mx-auto p-6 bg-white rounded-2xl shadow-xl space-y-6 border mt-8">
         <h1 className="text-4xl font-bold text-blue-700">Sup’t AI</h1>
 
         <p className="text-gray-500">
@@ -147,51 +209,105 @@ export default function Home() {
           </select>
         </div>
 
-        <button
-          onClick={startVoice}
-          className="bg-red-600 text-white text-xl px-6 py-4 rounded-full w-full"
-        >
-          🎤 {listening ? "Listening..." : "Tap to Speak"}
-        </button>
-
-        <textarea
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          className="w-full border p-3 rounded text-black"
-          placeholder="Type or speak a field note..."
-          rows={5}
-        />
-
-        <div className="flex gap-2">
-          <button
-            onClick={addStickyNote}
-            className="bg-yellow-500 text-black px-4 py-2 rounded-lg"
-          >
-            📝 Sticky Note
-          </button>
+        <div className="p-4 border rounded-xl bg-gray-50 space-y-4">
+          <h2 className="text-2xl font-bold text-blue-700">Daily Journal</h2>
 
           <button
-            onClick={dailyWrapUp}
-            className="bg-green-600 text-white px-4 py-2 rounded-lg"
+            onClick={startVoice}
+            className="bg-red-600 text-white text-xl px-6 py-4 rounded-full w-full"
           >
-            ✅ Daily Wrap-Up
+            🎤 {listening ? "Listening..." : "Tap to Speak"}
           </button>
+
+          <textarea
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            className="w-full border p-3 rounded text-black"
+            placeholder="Type or speak a field note..."
+            rows={5}
+          />
+
+          <div className="flex gap-2">
+            <button
+              onClick={addStickyNote}
+              className="bg-yellow-500 text-black px-4 py-2 rounded-lg"
+            >
+              📝 Sticky Note
+            </button>
+
+            <button
+              onClick={dailyWrapUp}
+              className="bg-green-600 text-white px-4 py-2 rounded-lg"
+            >
+              ✅ Daily Wrap-Up
+            </button>
+          </div>
+
+          <input
+            type="file"
+            accept="image/*"
+            onChange={uploadPhoto}
+            className="mt-2"
+          />
+
+          {loading && <p className="text-black">Generating report...</p>}
+
+          {!loading && response && (
+            <div className="mt-4 p-4 bg-white rounded-lg whitespace-pre-line text-black border">
+              {response}
+            </div>
+          )}
         </div>
 
-        <input
-          type="file"
-          accept="image/*"
-          onChange={uploadPhoto}
-          className="mt-2"
-        />
+        <div className="p-4 border rounded-xl bg-gray-50 space-y-3">
+          <h2 className="text-2xl font-bold text-blue-700">Equipment Log</h2>
 
-        {loading && <p className="text-black">Generating report...</p>}
+          <input
+            type="text"
+            value={equipment}
+            onChange={(e) => setEquipment(e.target.value)}
+            className="w-full border p-3 rounded text-black"
+            placeholder="Equipment (example: CRAH Unit)"
+          />
 
-        {!loading && response && (
-          <div className="mt-4 p-4 bg-gray-100 rounded-lg whitespace-pre-line text-black">
-            {response}
+          <input
+            type="text"
+            value={equipmentTag}
+            onChange={(e) => setEquipmentTag(e.target.value)}
+            className="w-full border p-3 rounded text-black"
+            placeholder="Tag (example: 1350-7)"
+          />
+
+          <input
+            type="text"
+            value={equipmentLocation}
+            onChange={(e) => setEquipmentLocation(e.target.value)}
+            className="w-full border p-3 rounded text-black"
+            placeholder="Location (example: IDF Room 2A)"
+          />
+
+          <div className="flex gap-2">
+            <button
+              onClick={saveEquipment}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg"
+            >
+              Save Equipment
+            </button>
+
+            <button
+              onClick={generateEquipmentReport}
+              className="bg-purple-600 text-white px-4 py-2 rounded-lg"
+            >
+              Generate Equipment Report
+            </button>
           </div>
-        )}
+
+          {equipmentReport && (
+            <div className="mt-4 p-4 bg-white rounded-lg whitespace-pre-line text-black border">
+              {equipmentReport}
+            </div>
+          )}
+        </div>
       </div>
     </main>
   );
