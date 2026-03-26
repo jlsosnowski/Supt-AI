@@ -149,12 +149,12 @@ async def log_entry(payload: dict):
 
     equipment_patterns = [
     r"(CRAH(?:\s+Unit)?\s+[\w\-]+)",
-    r"(RTU\s+[\w\-]+)",
+    r"(RTU[\w\-]*|\bRTU\b(?:\s+[\w\-]+)?)",
     r"(Panel\s+[\w\-]+)",
     r"(UPS\s+[\w\-]+)"
 ]
 
-    location_pattern = r"(IDF\s*Room\s*\w+|MDF\s*Room\s*\w+|Room\s*\w+|Roof\s*Grid\s*\w+)"
+    location_pattern = r"(IDF\s*Room\s*[\w\-]+|MDF\s*Room\s*[\w\-]+|Room\s*[\w\-]+|Roof\s*Grid\s*[\w\-]+)"
 
     equipment_match = None
     for pattern in equipment_patterns:
