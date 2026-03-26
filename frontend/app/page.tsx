@@ -218,7 +218,15 @@ export default function Home() {
     recognition.onstart = () => setListening(true);
 
     recognition.onresult = (event: any) => {
-      const transcript = event.results?.[0]?.[0]?.transcript ?? "";
+      let transcript = event.results?.[0]?.[0]?.transcript ?? "";
+
+      transcript = transcript
+        .replace(/\bcra\b/gi, "CRAH")
+        .replace(/\bcraw\b/gi, "CRAH")
+        .replace(/\bc rah\b/gi, "CRAH")
+        .replace(/\brtu\b/gi, "RTU")
+        .replace(/\bups\b/gi, "UPS");
+
       setPrompt(transcript);
     };
 
