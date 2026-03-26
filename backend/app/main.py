@@ -168,7 +168,21 @@ async def log_entry(payload: dict):
     if equipment_match:
         equipment_file = get_equipment_filename(user)
         location_value = location_match.group() if location_match else "Unknown location"
-        equipment_line = f"[{timestamp}] {equipment_match} |  | {location_value} | installed\n"
+
+        equipment_parts = equipment_match.strip().split()
+        tag_value = ""
+
+        if len(equipment_parts) >= 2:
+            last_part = equipment_parts[-1]
+            if any(char.isdigit() for char in last_part):
+                tag_value = last_part
+                equipment_name = " ".join(equipment_parts[:-1])
+            else:
+                equipment_name = equipment_match
+        else:
+            equipment_name = equipment_match
+
+        equipment_line = f"[{timestamp}] {equipment_name} | {tag_value} | {location_value} | installed\n"
         append_line(equipment_file, equipment_line)
 
     return {"status": "saved"}
