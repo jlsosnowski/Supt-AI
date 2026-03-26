@@ -267,7 +267,7 @@ export default function Home() {
 
       transcript = transcript
         .replace(/\b(cra|craw|kraw|c rah)\b/gi, "CRAH")
-        .replace(/\b(rtu|r t u)\b/gi, "RTU")
+        .replace(/\b(rtu|r t u|rtup|r two|r to)\b/gi, "RTU")
         .replace(/\b(ups|u p s|up's|yups|stupid)\b/gi, "UPS")
         .replace(/\b(idf|i d f)\b/gi, "IDF")
         .replace(/\b(mdf|m d f)\b/gi, "MDF");
