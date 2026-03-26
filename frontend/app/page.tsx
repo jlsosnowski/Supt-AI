@@ -220,12 +220,13 @@ export default function Home() {
     recognition.onresult = (event: any) => {
       let transcript = event.results?.[0]?.[0]?.transcript ?? "";
 
-      transcript = transcript
-        .replace(/\bcra\b/gi, "CRAH")
-        .replace(/\bcraw\b/gi, "CRAH")
-        .replace(/\bc rah\b/gi, "CRAH")
-        .replace(/\brtu\b/gi, "RTU")
-        .replace(/\bups\b/gi, "UPS");
+     transcript = transcript
+     .replace(/\b(cra|craw|kraw|c rah)\b/gi, "CRAH")
+     .replace(/\b(rtu|r t u)\b/gi, "RTU")
+     .replace(/\b(ups|u p s)\b/gi, "UPS")
+     .replace(/\b(idf|i d f)\b/gi, "IDF")
+     .replace(/\b(mdf|m d f)\b/gi, "MDF");
+
 
       setPrompt(transcript);
     };
