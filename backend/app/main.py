@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import os
 import json
 import traceback
+import re
 from datetime import datetime
 
 from app.services.routing_service import route_prompt
@@ -145,33 +146,31 @@ async def log_entry(payload: dict):
 
     append_line(active_file, line)
     append_line(archive_file, line)
-    import re
 
-equipment_patterns = [
-    r"(CRAH\s*Unit\s*[\w\-]+)",
-    r"(RTU\s*[\w\-]+)",
-    r"(Panel\s*[\w\-]+)",
-    r"(UPS\s*[\w\-]+)"
-]
+    equipment_patterns = [
+        r"(CRAH\s*Unit\s*[\w\-]+)",
+        r"(RTU\s*[\w\-]+)",
+        r"(Panel\s*[\w\-]+)",
+        r"(UPS\s*[\w\-]+)"
+    ]
 
-location_pattern = r"(IDF\s*Room\s*\w+|MDF\s*Room\s*\w+|Room\s*\w+|Roof\s*Grid\s*\w+)"
+    location_pattern = r"(IDF\s*Room\s*\w+|MDF\s*Room\s*\w+|Room\s*\w+|Roof\s*Grid\s*\w+)"
 
-equipment_match = None
-for pattern in equipment_patterns:
-    match = re.search(pattern, text, re.IGNORECASE)
-    if match:
-        equipment_match = match.group()
-        break
+    equipment_match = None
+    for pattern in equipment_patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            equipment_match = match.group()
+            break
 
-location_match = re.search(location_pattern, text, re.IGNORECASE)
+    location_match = re.search(location_pattern, text, re.IGNORECASE)
 
-if equipment_match:
-    equipment_file = get_equipment_filename(user)
-    location_value = location_match.group() if location_match else "Unknown location"
+    if equipment_match:
+        equipment_file = get_equipment_filename(user)
+        location_value = location_match.group() if location_match else "Unknown location"
+        equipment_line = f"[{timestamp}] {equipment_match} |  | {location_value} | installed\n"
+        append_line(equipment_file, equipment_line)
 
-    equipment_line = f"[{timestamp}] {equipment_match} | {location_value} | installed\n"
-    append_line(equipment_file, equipment_line)
-    
     return {"status": "saved"}
 
 
