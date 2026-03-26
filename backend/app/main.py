@@ -148,11 +148,11 @@ async def log_entry(payload: dict):
     append_line(archive_file, line)
 
     equipment_patterns = [
-    r"(CRAH(?:\s+Unit)?\s+[\w\-]+)",
-    r"(RTU[\w\-]*|\bRTU\b(?:\s+[\w\-]+)?)",
-    r"(Panel\s+[\w\-]+)",
-    r"(UPS\s+[\w\-]+)"
-]
+        r"(CRAH(?:\s+Unit)?\s+[\w\-]+)",
+        r"(RTU[\w\-]*|\bRTU\b(?:\s+[\w\-]+)?)",
+        r"(Panel\s+[\w\-]+)",
+        r"(UPS\s+[\w\-]+)"
+    ]
 
     location_pattern = r"(IDF\s*Room\s*[\w\-]+|MDF\s*Room\s*[\w\-]+|Room\s*[\w\-]+|Roof\s*Grid\s*[\w\-]+)"
 
@@ -318,6 +318,52 @@ async def equipment_report(payload: dict):
         print("EQUIPMENT_REPORT_ERROR:", repr(e))
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/equipment-list")
+async def equipment_list(payload: dict):
+    user = payload.get("user", "").strip()
+
+    if not user:
+        raise HTTPException(status_code=400, detail="No user provided")
+
+    filename = get_equipment_filename(user)
+
+    if not os.path.exists(filename):
+        return {"items": []}
+
+    items = []
+
+    with open(filename, "r", encoding="utf-8") as f:
+        for raw_line in f:
+            line = raw_line.strip()
+            if not line:
+                continue
+
+            timestamp = ""
+            rest = line
+
+            if line.startswith("[") and "]" in line:
+                closing_index = line.find("]")
+                timestamp = line[1:closing_index]
+                rest = line[closing_index + 1:].strip()
+
+            parts = [p.strip() for p in rest.split("|")]
+
+            equipment = parts[0] if len(parts) > 0 else ""
+            tag = parts[1] if len(parts) > 1 else ""
+            location = parts[2] if len(parts) > 2 else ""
+            status = parts[3] if len(parts) > 3 else ""
+
+            items.append({
+                "timestamp": timestamp,
+                "equipment": equipment,
+                "tag": tag,
+                "location": location,
+                "status": status,
+            })
+
+    return {"items": items}
 
 
 @app.post("/upload-photo")
