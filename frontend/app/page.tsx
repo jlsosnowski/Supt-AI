@@ -4,6 +4,14 @@ import { useEffect, useState } from "react";
 
 const API_BASE = "https://supt-ai-backend.onrender.com";
 
+type EquipmentItem = {
+  timestamp: string;
+  equipment: string;
+  tag: string;
+  location: string;
+  status: string;
+};
+
 export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
@@ -20,6 +28,8 @@ export default function Home() {
   const [equipmentTag, setEquipmentTag] = useState("");
   const [equipmentLocation, setEquipmentLocation] = useState("");
   const [equipmentReport, setEquipmentReport] = useState("");
+  const [equipmentItems, setEquipmentItems] = useState<EquipmentItem[]>([]);
+  const [equipmentLoading, setEquipmentLoading] = useState(false);
 
   useEffect(() => {
     const savedUser = localStorage.getItem("supt_ai_user");
@@ -39,6 +49,38 @@ export default function Home() {
       setEquipmentReport(savedEquipmentReport);
     }
   }, []);
+
+  useEffect(() => {
+    if (isLoggedIn && user) {
+      fetchEquipmentList();
+    }
+  }, [isLoggedIn, user]);
+
+  const fetchEquipmentList = async () => {
+    if (!user) return;
+
+    setEquipmentLoading(true);
+
+    try {
+      const res = await fetch(`${API_BASE}/equipment-list`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ user }),
+      });
+
+      if (!res.ok) throw new Error("Failed to load equipment list.");
+
+      const data = await res.json();
+      setEquipmentItems(Array.isArray(data.items) ? data.items : []);
+    } catch (error) {
+      console.error(error);
+      setEquipmentItems([]);
+    } finally {
+      setEquipmentLoading(false);
+    }
+  };
 
   const handleAuth = async () => {
     if (!username.trim() || !password.trim()) {
@@ -103,6 +145,7 @@ export default function Home() {
 
       alert("Sticky note saved.");
       setPrompt("");
+      fetchEquipmentList();
     } catch (error) {
       console.error(error);
       alert("Failed to save sticky note.");
@@ -167,6 +210,7 @@ export default function Home() {
       setEquipment("");
       setEquipmentTag("");
       setEquipmentLocation("");
+      fetchEquipmentList();
     } catch (error) {
       console.error(error);
       alert("Failed to save equipment.");
@@ -191,6 +235,7 @@ export default function Home() {
       const equipmentText = data.text ?? "No equipment report returned.";
       setEquipmentReport(equipmentText);
       localStorage.setItem("supt_ai_equipment_report", equipmentText);
+      fetchEquipmentList();
     } catch (error) {
       console.error(error);
       setEquipmentReport("Failed to generate equipment report.");
@@ -220,13 +265,12 @@ export default function Home() {
     recognition.onresult = (event: any) => {
       let transcript = event.results?.[0]?.[0]?.transcript ?? "";
 
-     transcript = transcript
-     .replace(/\b(cra|craw|kraw|c rah)\b/gi, "CRAH")
-     .replace(/\b(rtu|r t u)\b/gi, "RTU")
-     .replace(/\b(ups|u p s)\b/gi, "UPS")
-     .replace(/\b(idf|i d f)\b/gi, "IDF")
-     .replace(/\b(mdf|m d f)\b/gi, "MDF");
-
+      transcript = transcript
+        .replace(/\b(cra|craw|kraw|c rah)\b/gi, "CRAH")
+        .replace(/\b(rtu|r t u)\b/gi, "RTU")
+        .replace(/\b(ups|u p s)\b/gi, "UPS")
+        .replace(/\b(idf|i d f)\b/gi, "IDF")
+        .replace(/\b(mdf|m d f)\b/gi, "MDF");
 
       setPrompt(transcript);
     };
@@ -279,6 +323,7 @@ export default function Home() {
     setEquipmentTag("");
     setEquipmentLocation("");
     setEquipmentReport("");
+    setEquipmentItems([]);
   };
 
   if (!isLoggedIn) {
@@ -340,7 +385,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-gray-100 p-6">
-      <div className="max-w-3xl mx-auto p-6 bg-white rounded-2xl shadow-xl space-y-6 border mt-8">
+      <div className="max-w-5xl mx-auto p-6 bg-white rounded-2xl shadow-xl space-y-6 border mt-8">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-4xl font-bold text-blue-700">Sup’t AI</h1>
@@ -409,7 +454,15 @@ export default function Home() {
         </div>
 
         <div className="p-4 border rounded-xl bg-gray-50 space-y-3">
-          <h2 className="text-2xl font-bold text-blue-700">Equipment Log</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-blue-700">Equipment Log</h2>
+            <button
+              onClick={fetchEquipmentList}
+              className="bg-gray-700 text-white px-3 py-2 rounded-lg text-sm"
+            >
+              Refresh Table
+            </button>
+          </div>
 
           <input
             type="text"
@@ -449,6 +502,61 @@ export default function Home() {
             >
               Generate Equipment Report
             </button>
+          </div>
+
+          <div className="mt-4 overflow-x-auto">
+            <h3 className="text-lg font-semibold text-black mb-2">
+              Live Equipment Table
+            </h3>
+
+            {equipmentLoading ? (
+              <p className="text-black">Loading equipment...</p>
+            ) : equipmentItems.length === 0 ? (
+              <p className="text-black">No equipment logged yet.</p>
+            ) : (
+              <table className="w-full border border-gray-300 bg-white text-black">
+                <thead className="bg-gray-200">
+                  <tr>
+                    <th className="border border-gray-300 px-3 py-2 text-left">
+                      Equipment
+                    </th>
+                    <th className="border border-gray-300 px-3 py-2 text-left">
+                      Tag
+                    </th>
+                    <th className="border border-gray-300 px-3 py-2 text-left">
+                      Location
+                    </th>
+                    <th className="border border-gray-300 px-3 py-2 text-left">
+                      Status
+                    </th>
+                    <th className="border border-gray-300 px-3 py-2 text-left">
+                      Timestamp
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {equipmentItems.map((item, index) => (
+                    <tr key={`${item.timestamp}-${item.equipment}-${index}`}>
+                      <td className="border border-gray-300 px-3 py-2">
+                        {item.equipment || "-"}
+                      </td>
+                      <td className="border border-gray-300 px-3 py-2">
+                        {item.tag || "-"}
+                      </td>
+                      <td className="border border-gray-300 px-3 py-2">
+                        {item.location || "-"}
+                      </td>
+                      <td className="border border-gray-300 px-3 py-2">
+                        {item.status || "-"}
+                      </td>
+                      <td className="border border-gray-300 px-3 py-2">
+                        {item.timestamp || "-"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
 
           {equipmentReport && (
