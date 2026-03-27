@@ -29,6 +29,29 @@ os.makedirs("data", exist_ok=True)
 USERS_FILE = os.path.join("data", "users.json")
 
 
+def load_project_data():
+    filename = os.path.join(os.path.dirname(__file__), "project_data.json")
+
+    if not os.path.exists(filename):
+        return {"galleries": {}}
+
+    with open(filename, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+PROJECT_DATA = load_project_data()
+
+
+def lookup_gallery_by_tag(tag: str):
+    galleries = PROJECT_DATA.get("galleries", {})
+
+    for gallery, info in galleries.items():
+        if tag in info.get("tags", []):
+            return gallery
+
+    return None
+
+
 def load_users():
     if not os.path.exists(USERS_FILE):
         return {}
@@ -57,26 +80,22 @@ def get_user_key(user: str) -> str:
 
 
 def get_active_log_filename(user: str) -> str:
-    user_key = get_user_key(user)
-    return os.path.join("data", f"active_{user_key}.txt")
+    return os.path.join("data", f"active_{get_user_key(user)}.txt")
 
 
 def get_archive_filename(user: str) -> str:
-    user_key = get_user_key(user)
-    return os.path.join("data", f"archive_{user_key}.txt")
+    return os.path.join("data", f"archive_{get_user_key(user)}.txt")
 
 
 def get_reports_filename(user: str) -> str:
-    user_key = get_user_key(user)
-    return os.path.join("data", f"reports_{user_key}.txt")
+    return os.path.join("data", f"reports_{get_user_key(user)}.txt")
 
 
 def get_equipment_filename(user: str) -> str:
-    user_key = get_user_key(user)
-    return os.path.join("data", f"equipment_{user_key}.txt")
+    return os.path.join("data", f"equipment_{get_user_key(user)}.txt")
 
 
-def append_line(filename: str, text: str) -> None:
+def append_line(filename: str, text: str):
     with open(filename, "a", encoding="utf-8") as f:
         f.write(text)
 
@@ -99,10 +118,7 @@ async def register(payload: dict):
     if username in users:
         raise HTTPException(status_code=400, detail="User already exists")
 
-    users[username] = {
-        "password": password
-    }
-
+    users[username] = {"password": password}
     save_users(users)
 
     return {"status": "user created"}
@@ -167,20 +183,29 @@ async def log_entry(payload: dict):
 
     if equipment_match:
         equipment_file = get_equipment_filename(user)
-        location_value = location_match.group() if location_match else "Unknown location"
 
         equipment_parts = equipment_match.strip().split()
         tag_value = ""
+        equipment_name = equipment_match
 
         if len(equipment_parts) >= 2:
             last_part = equipment_parts[-1]
             if any(char.isdigit() for char in last_part):
                 tag_value = last_part
                 equipment_name = " ".join(equipment_parts[:-1])
+
+        if not location_match and tag_value:
+            gallery = lookup_gallery_by_tag(tag_value)
+            if gallery:
+                location_value = f"Gallery {gallery}"
             else:
-                equipment_name = equipment_match
+                location_value = "Unknown location"
         else:
-            equipment_name = equipment_match
+            location_value = (
+                location_match.group()
+                if location_match
+                else "Unknown location"
+            )
 
         equipment_line = f"[{timestamp}] {equipment_name} | {tag_value} | {location_value} | installed\n"
         append_line(equipment_file, equipment_line)
