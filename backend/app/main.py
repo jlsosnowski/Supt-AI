@@ -39,19 +39,14 @@ def load_project_data():
         return json.load(f)
 
 
-PROJECT_DATA = load_project_data()
-
-
 def lookup_gallery_by_tag(tag: str):
-    
-    tag = tag.strip().upper()
+    tag = (tag or "").strip().upper()
 
-    galleries = PROJECT_DATA.get("galleries", {})
+    project_data = load_project_data()
+    galleries = project_data.get("galleries", {})
 
     for gallery, info in galleries.items():
-
-        tag_list = [t.strip().upper() for t in info.get("tags", [])]
-
+        tag_list = [str(t).strip().upper() for t in info.get("tags", [])]
         if tag in tag_list:
             return gallery
 
@@ -104,6 +99,26 @@ def get_equipment_filename(user: str) -> str:
 def append_line(filename: str, text: str):
     with open(filename, "a", encoding="utf-8") as f:
         f.write(text)
+
+
+def parse_equipment_and_tag(equipment_match: str):
+    equipment_match = (equipment_match or "").strip()
+
+    patterns = [
+        r"^(CRAH(?:\s+Unit)?)\s+([\w\-]+)$",
+        r"^(UPS)\s+([\w\-]+)$",
+        r"^(Panel)\s+([\w\-]+)$",
+        r"^(RTU)\s*[\- ]?\s*([\w\-]+)$",
+    ]
+
+    for pattern in patterns:
+        match = re.match(pattern, equipment_match, re.IGNORECASE)
+        if match:
+            equipment_name = match.group(1).strip()
+            tag_value = match.group(2).strip()
+            return equipment_name, tag_value
+
+    return equipment_match, ""
 
 
 @app.get("/")
@@ -171,9 +186,9 @@ async def log_entry(payload: dict):
 
     equipment_patterns = [
         r"(CRAH(?:\s+Unit)?\s+[\w\-]+)",
-        r"(RTU[\w\-]*|\bRTU\b(?:\s+[\w\-]+)?)",
+        r"(RTU(?:[\- ]?[\w\-]+)?)",
         r"(Panel\s+[\w\-]+)",
-        r"(UPS\s+[\w\-]+)"
+        r"(UPS\s+[\w\-]+)",
     ]
 
     location_pattern = r"(IDF\s*Room\s*[\w\-]+|MDF\s*Room\s*[\w\-]+|Room\s*[\w\-]+|Roof\s*Grid\s*[\w\-]+)"
@@ -182,7 +197,7 @@ async def log_entry(payload: dict):
     for pattern in equipment_patterns:
         match = re.search(pattern, text, re.IGNORECASE)
         if match:
-            equipment_match = match.group()
+            equipment_match = match.group().strip()
             break
 
     location_match = re.search(location_pattern, text, re.IGNORECASE)
@@ -190,15 +205,7 @@ async def log_entry(payload: dict):
     if equipment_match:
         equipment_file = get_equipment_filename(user)
 
-        equipment_parts = equipment_match.strip().split()
-        tag_value = ""
-        equipment_name = equipment_match
-
-        if len(equipment_parts) >= 2:
-            last_part = equipment_parts[-1]
-            if any(char.isdigit() for char in last_part):
-                tag_value = last_part
-                equipment_name = " ".join(equipment_parts[:-1])
+        equipment_name, tag_value = parse_equipment_and_tag(equipment_match)
 
         if not location_match and tag_value:
             gallery = lookup_gallery_by_tag(tag_value)
@@ -208,7 +215,7 @@ async def log_entry(payload: dict):
                 location_value = "Unknown location"
         else:
             location_value = (
-                location_match.group()
+                location_match.group().strip()
                 if location_match
                 else "Unknown location"
             )
