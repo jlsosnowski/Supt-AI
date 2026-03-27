@@ -43,10 +43,16 @@ PROJECT_DATA = load_project_data()
 
 
 def lookup_gallery_by_tag(tag: str):
+    
+    tag = tag.strip().upper()
+
     galleries = PROJECT_DATA.get("galleries", {})
 
     for gallery, info in galleries.items():
-        if tag in info.get("tags", []):
+
+        tag_list = [t.strip().upper() for t in info.get("tags", [])]
+
+        if tag in tag_list:
             return gallery
 
     return None
