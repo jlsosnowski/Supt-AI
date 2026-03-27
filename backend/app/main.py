@@ -41,6 +41,7 @@ def load_project_data():
 
 def lookup_gallery_by_tag(tag: str):
     tag = (tag or "").strip().upper()
+    tag = tag.replace("UNIT ", "").replace("CRAH ", "")
 
     project_data = load_project_data()
     galleries = project_data.get("galleries", {})
