@@ -122,6 +122,24 @@ def parse_equipment_and_tag(equipment_match: str):
     return equipment_match, ""
 
 
+def detect_status(line_text: str) -> str:
+    text = (line_text or "").strip().lower()
+
+    if re.search(r"\b(remove|removed|demo|demolished)\b", text):
+        return "removed"
+
+    if re.search(r"\b(replace|replaced|swap|swapped)\b", text):
+        return "replaced"
+
+    if re.search(r"\b(test|tested|startup|commissioned|checked|verified)\b", text):
+        return "tested"
+
+    if re.search(r"\b(install|installed|set|mounted)\b", text):
+        return "installed"
+
+    return "installed"
+
+
 @app.get("/")
 def root():
     return {"status": "Sup't AI backend running"}
@@ -213,6 +231,7 @@ async def log_entry(payload: dict):
 
         location_match = re.search(location_pattern, line_text, re.IGNORECASE)
         equipment_name, tag_value = parse_equipment_and_tag(equipment_match)
+        status_value = detect_status(line_text)
 
         if not location_match and tag_value:
             gallery = lookup_gallery_by_tag(tag_value)
@@ -227,7 +246,7 @@ async def log_entry(payload: dict):
                 else "Unknown location"
             )
 
-        equipment_line = f"[{timestamp}] {equipment_name} | {tag_value} | {location_value} | installed\n"
+        equipment_line = f"[{timestamp}] {equipment_name} | {tag_value} | {location_value} | {status_value}\n"
         append_line(equipment_file, equipment_line)
         saved_items += 1
 
