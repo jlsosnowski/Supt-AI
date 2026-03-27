@@ -126,19 +126,6 @@ def root():
     return {"status": "Sup't AI backend running"}
 
 
-@app.get("/project-data-check")
-async def project_data_check():
-    project_data = load_project_data()
-    galleries = project_data.get("galleries", {})
-
-    return {
-        "project_data_found": bool(galleries),
-        "gallery_keys": list(galleries.keys()),
-        "lookup_1100_2": lookup_gallery_by_tag("1100-2"),
-        "raw_project_data": project_data,
-    }
-
-
 @app.post("/register")
 async def register(payload: dict):
     username = payload.get("username", "").strip().lower()
@@ -189,13 +176,13 @@ async def log_entry(payload: dict):
         raise HTTPException(status_code=400, detail="No user provided")
 
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    line = f"[{timestamp}] {text}\n"
-
     active_file = get_active_log_filename(user)
     archive_file = get_archive_filename(user)
+    equipment_file = get_equipment_filename(user)
 
-    append_line(active_file, line)
-    append_line(archive_file, line)
+    raw_line = f"[{timestamp}] {text}\n"
+    append_line(active_file, raw_line)
+    append_line(archive_file, raw_line)
 
     equipment_patterns = [
         r"(CRAH(?:\s+Unit)?\s+[\w\-]+)",
@@ -206,18 +193,24 @@ async def log_entry(payload: dict):
 
     location_pattern = r"(IDF\s*Room\s*[\w\-]+|MDF\s*Room\s*[\w\-]+|Room\s*[\w\-]+|Roof\s*Grid\s*[\w\-]+)"
 
-    equipment_match = None
-    for pattern in equipment_patterns:
-        match = re.search(pattern, text, re.IGNORECASE)
-        if match:
-            equipment_match = match.group().strip()
-            break
+    saved_items = 0
 
-    location_match = re.search(location_pattern, text, re.IGNORECASE)
+    for raw_text_line in text.splitlines():
+        line_text = raw_text_line.strip()
+        if not line_text:
+            continue
 
-    if equipment_match:
-        equipment_file = get_equipment_filename(user)
+        equipment_match = None
+        for pattern in equipment_patterns:
+            match = re.search(pattern, line_text, re.IGNORECASE)
+            if match:
+                equipment_match = match.group().strip()
+                break
 
+        if not equipment_match:
+            continue
+
+        location_match = re.search(location_pattern, line_text, re.IGNORECASE)
         equipment_name, tag_value = parse_equipment_and_tag(equipment_match)
 
         if not location_match and tag_value:
@@ -235,8 +228,9 @@ async def log_entry(payload: dict):
 
         equipment_line = f"[{timestamp}] {equipment_name} | {tag_value} | {location_value} | installed\n"
         append_line(equipment_file, equipment_line)
+        saved_items += 1
 
-    return {"status": "saved"}
+    return {"status": "saved", "equipment_items_logged": saved_items}
 
 
 @app.post("/generate-report")
