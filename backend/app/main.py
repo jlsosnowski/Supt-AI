@@ -126,6 +126,19 @@ def root():
     return {"status": "Sup't AI backend running"}
 
 
+@app.get("/project-data-check")
+async def project_data_check():
+    project_data = load_project_data()
+    galleries = project_data.get("galleries", {})
+
+    return {
+        "project_data_found": bool(galleries),
+        "gallery_keys": list(galleries.keys()),
+        "lookup_1100_2": lookup_gallery_by_tag("1100-2"),
+        "raw_project_data": project_data,
+    }
+
+
 @app.post("/register")
 async def register(payload: dict):
     username = payload.get("username", "").strip().lower()
