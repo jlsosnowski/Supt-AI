@@ -266,12 +266,16 @@ export default function Home() {
       let transcript = event.results?.[0]?.[0]?.transcript ?? "";
 
       transcript = transcript
-        .replace(/\b(cra|craw|kraw|c rah)\b/gi, "CRAH")
-        .replace(/\b(rtu|r t u|rtup|r two|r to)\b/gi, "RTU")
-        .replace(/\brtup-?/gi, "RTU-")
-        .replace(/\b(ups|u p s|up's|yups|stupid)\b/gi, "UPS")
-        .replace(/\b(idf|i d f)\b/gi, "IDF")
-        .replace(/\b(mdf|m d f)\b/gi, "MDF");
+      .replace(/\bcrawl(?=\s*\d)/gi, "CRAH ")
+      .replace(/\bcraw(?=\d)/gi, "CRAH ")
+      .replace(/\bkraw(?=\d)/gi, "CRAH ")
+      .replace(/\bcra(?=\d)/gi, "CRAH ")
+      .replace(/\b(cra|craw|kraw|crawl|c rah)\b/gi, "CRAH")
+      .replace(/\b(rtu|r t u|rtup|r two|r to)\b/gi, "RTU")
+      .replace(/\brtup-?/gi, "RTU-")
+      .replace(/\b(ups|u p s|up's|yups|stupid)\b/gi, "UPS")
+      .replace(/\b(idf|i d f)\b/gi, "IDF")
+      .replace(/\b(mdf|m d f)\b/gi, "MDF");
 
       setPrompt(transcript);
     };
