@@ -1,9 +1,11 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 import os
 import json
 import traceback
 import re
+import csv
 from datetime import datetime
 
 from app.services.routing_service import route_prompt
@@ -443,6 +445,51 @@ async def equipment_list(payload: dict):
             })
 
     return {"items": items}
+
+
+@app.post("/equipment-export-csv")
+async def equipment_export_csv(payload: dict):
+    user = payload.get("user", "").strip()
+
+    if not user:
+        raise HTTPException(status_code=400, detail="No user provided")
+
+    filename = get_equipment_filename(user)
+
+    if not os.path.exists(filename):
+        raise HTTPException(status_code=404, detail="No equipment data found")
+
+    csv_filename = os.path.join("data", f"equipment_export_{get_user_key(user)}.csv")
+
+    with open(filename, "r", encoding="utf-8") as f_in, open(
+        csv_filename, "w", newline="", encoding="utf-8"
+    ) as f_out:
+        writer = csv.writer(f_out)
+        writer.writerow(["Timestamp", "Equipment", "Tag", "Location", "Status"])
+
+        for line in f_in:
+            line = line.strip()
+            if not line:
+                continue
+
+            timestamp = ""
+            rest = line
+
+            if line.startswith("[") and "]" in line:
+                closing_index = line.find("]")
+                timestamp = line[1:closing_index]
+                rest = line[closing_index + 1:].strip()
+
+            parts = [p.strip() for p in rest.split("|")]
+
+            equipment = parts[0] if len(parts) > 0 else ""
+            tag = parts[1] if len(parts) > 1 else ""
+            location = parts[2] if len(parts) > 2 else ""
+            status = parts[3] if len(parts) > 3 else ""
+
+            writer.writerow([timestamp, equipment, tag, location, status])
+
+    return FileResponse(csv_filename, filename="equipment_export.csv", media_type="text/csv")
 
 
 @app.post("/upload-photo")
